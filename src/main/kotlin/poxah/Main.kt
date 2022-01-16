@@ -1,33 +1,101 @@
 package poxah
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import poxah.blizzard.GameDataClient
 import poxah.blizzard.auth.AuthClient
-import poxah.blizzard.model.AuctionResponse
+import poxah.blizzard.model.Auction
+import poxah.config.Config
+import poxah.service.ItemCache
+import poxah.service.JsonFileService
+import poxah.service.ResourceFileService
 import java.io.File
-
-class Main
+import java.time.Instant
 
 val logger = LoggerFactory.getLogger(Main::class.java)
+class Main(
+    tokenClient: AuthClient
+) {
+    private val client = GameDataClient(tokenClient)
+    private val itemCache = ItemCache(client)
+
+
+    private val config: Config = ResourceFileService().read("config.json")
+    init {
+        logger.debug("Config $config")
+    }
+
+    private fun getAuctions(): Map<Int, List<Auction>> {
+        val auctions = runBlocking { client.getAuctions() }
+//        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions.json"))
+        JsonFileService().write("auctions_${Instant.now().epochSecond}.json", auctions)
+
+        logger.debug("auctions ${auctions.auctions.size}")
+        val filteredAuctions = auctions.auctions.filter { config.ids.contains(it.item.id) }.groupBy { it.item.id }
+        logger.debug("filtered auctions ${filteredAuctions.size}")
+
+        return filteredAuctions
+    }
+
+    private suspend fun summarizeAuctions(auctions: Map<Int, List<Auction>>): List<Summary> =
+        auctions.map {
+            // TODO iterating items multiple times
+            val quantity = it.value.fold(0L) { acc, auction -> acc + auction.quantity }
+            val totalCost =
+                it.value.fold(0L) { acc, auction -> acc + requireNotNull(auction.unit_price) * auction.quantity }
+            val min: Long = it.value.minOf { auction -> requireNotNull(auction.unit_price)}
+
+            Summary(
+                it.key,
+                itemCache.getItem(it.key).name,
+                Price(min),
+                Price(totalCost / quantity),
+                quantity
+            )
+        }
+
+    /**
+     * Prints output to `summary.csv`
+     */
+    suspend fun printSummary() {
+        val summaries = summarizeAuctions(getAuctions())
+//        logger.info("Summary")
+//        logger.info(Summary.HEADER)
+//        summaries.forEach {
+//            logger.info("$it")
+//        }
+
+        File("out/summary.csv").printWriter().use { print ->
+//            print.println(Summary.HEADER)
+            summaries.forEach {
+                print.println("$it")
+            }
+        }
+    }
+
+    fun stop() {
+        itemCache.close()
+    }
+
+}
+
 
 fun main(args: Array<String>) {
     logger.warn("Program arguments: ${args.joinToString()}")
 
-//    val token = runBlocking { AuthClient().javaToken() }
-//    logger.info("request {}", token)
-//    val realm = runBlocking { GameDataClient(AuthClient(args[0], args[1])).getConnectedRealm() }
-//    File("auctions_format.json").writeText(auctions)
-//    logger.info("realm $realm")
+    val main = Main(AuthClient(args[0], args[1]))
 
-    val auctions = jacksonObjectMapper()
-//        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-        .readValue(
-        Main::class.java.classLoader.getResource("auctions.json"),
-        AuctionResponse::class.java)
+    runBlocking {
+        main.printSummary()
+        main.stop()
+    }
 
-    logger.warn("auctions ${auctions.auctions.size}")
+//    runBlocking {
+//        logger.info("${GameDataClient(AuthClient(args[0], args[1])).getItem(178786)}")
+//    }
+
+
+
 
 //    auctions.auctions.filter { it.item.id == 171276 }.sortedBy { it.unit_price }.forEach {
 //        logger.info(it.toString())
@@ -36,7 +104,26 @@ fun main(args: Array<String>) {
 //    auctions.auctions.filter { it.item.id == petCageId && it.item.pet_species_id == 1152 }.forEach {
 //        logger.info(it.toString())
 //    }
+}
 
-    // Try adding program arguments via Run/Debug configuration.
-    // Learn more about running applications: https://www.jetbrains.com/help/idea/running-applications.html.
+data class Summary(
+    val itemId: Int,
+    val name: String,
+    val min: Price,
+    val avg: Price,
+    val quantity: Long,
+) {
+
+    companion object {
+        const val HEADER = "item,name,quantity,min,avg"
+    }
+    override fun toString(): String =
+        "$itemId|$name|$quantity|${min.price}|${avg.price}"
+
+}
+
+@JvmInline
+value class Price(val price: Long) {
+    fun pretty(): String =
+        "${(price / 10000)}g ${price / 100 % 100}s ${price % 100}c"
 }

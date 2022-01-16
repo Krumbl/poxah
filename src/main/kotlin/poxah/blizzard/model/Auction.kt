@@ -8,15 +8,20 @@ data class AuctionResponse(
 
 data class Auction(
     val id: Int,
-    val item: Item,
+    val item: AuctionItem,
     val bid: Long? = null,
     val buyout: Long,
     val quantity: Int,
-    val unit_price: Long? = null, // TODO what should default be?
+    val unit_price: Price? = null, // TODO what should default be?
     val time_left: String, // TODO enum
 )
 
-data class Item(
+typealias Price = Long
+fun Price.toString(): String =
+    "PRICE"
+//    (this / 10000).toString()
+
+data class AuctionItem(
     val id: Int,
     val context: Int,
     val bonus_lists: Collection<Int> = emptyList(),

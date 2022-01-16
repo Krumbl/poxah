@@ -13,16 +13,17 @@ import poxah.blizzard.auth.AuthClient
 import poxah.blizzard.auth.model.AuthToken
 import poxah.blizzard.model.AuctionResponse
 import poxah.blizzard.model.ConnectedRealm
+import poxah.blizzard.model.Item
 
 class GameDataClient(
     private val authClient: AuthClient
 ) {
     val client = HttpClient(CIO) {
         expectSuccess = true
-        install(Logging) {
-            logger = Logger.DEFAULT
-            level = LogLevel.HEADERS
-        }
+//        install(Logging) {
+//            logger = Logger.DEFAULT
+//            level = LogLevel.HEADERS
+//        }
         Json {
             serializer = JacksonSerializer {
                 disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -58,8 +59,9 @@ class GameDataClient(
     suspend fun getConnectedRealm(realmId: String = "3676"): ConnectedRealm =
         client.get("https://us.api.blizzard.com/data/wow/connected-realm/$realmId?namespace=dynamic-us&locale=en_US")
 
-    suspend fun getCustomemr(): Customer =
-        client.get("http://localhost:8080/customer/3")
+    suspend fun getItem(id: Int): Item =
+        client.get("https://us.api.blizzard.com/data/wow/item/$id?namespace=static-us&locale=en_US")
+
 }
 @Serializable
 data class Customer(val id: Int, val firstName: String, val lastName: String)
