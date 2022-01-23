@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import poxah.blizzard.GameDataClient
 import poxah.blizzard.auth.AuthClient
 import poxah.blizzard.model.Auction
+import poxah.blizzard.model.AuctionResponse
 import poxah.config.Config
 import poxah.service.ItemCache
 import poxah.service.JsonFileService
@@ -26,12 +27,14 @@ class Main(
     }
 
     private fun getAuctions(): Map<Int, List<Auction>> {
-        val auctions = runBlocking { client.getAuctions() }
-//        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions.json"))
+//        val auctions = runBlocking { client.getAuctions() }
+        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions_1642975803.json"))
         JsonFileService().write("auctions_${Instant.now().epochSecond}.json", auctions)
 
         logger.debug("auctions ${auctions.auctions.size}")
-        val filteredAuctions = auctions.auctions.filter { config.ids.contains(it.item.id) }.groupBy { it.item.id }
+        val filteredAuctions = auctions.auctions.filter {
+            config.ids().contains(it.item.id)
+        }.groupBy { it.item.id }
         logger.debug("filtered auctions ${filteredAuctions.size}")
 
         return filteredAuctions
@@ -41,9 +44,16 @@ class Main(
         auctions.map {
             // TODO iterating items multiple times
             val quantity = it.value.fold(0L) { acc, auction -> acc + auction.quantity }
+
+
+            // TODO legendaries not separated by ilvl
             val totalCost =
-                it.value.fold(0L) { acc, auction -> acc + requireNotNull(auction.unit_price) * auction.quantity }
-            val min: Long = it.value.minOf { auction -> requireNotNull(auction.unit_price)}
+                it.value.fold(0L) { acc, auction ->
+                    acc + (auction.unit_price ?: (auction.buyout * auction.quantity))
+                    //                        requireNotNull(auction.unit_price) { "Invalid auction $auction" } *
+                }
+            val min: Long = it.value.minOf { auction -> (auction.unit_price ?: (auction.buyout * auction.quantity)) }
+//                requireNotNull(auction.unit_price)}
 
             Summary(
                 it.key,
@@ -67,7 +77,7 @@ class Main(
 
         File("out/summary.csv").printWriter().use { print ->
 //            print.println(Summary.HEADER)
-            summaries.forEach {
+            summaries.sortedBy { it.itemId }.forEach {
                 print.println("$it")
             }
         }
