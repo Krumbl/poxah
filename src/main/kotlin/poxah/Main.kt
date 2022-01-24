@@ -27,8 +27,8 @@ class Main(
     }
 
     private fun getAuctions(): Map<Int, List<Auction>> {
-//        val auctions = runBlocking { client.getAuctions() }
-        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions_1642975803.json"))
+        val auctions = runBlocking { client.getAuctions() }
+//        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions_1642975803.json"))
         JsonFileService().write("auctions_${Instant.now().epochSecond}.json", auctions)
 
         logger.debug("auctions ${auctions.auctions.size}")
@@ -43,6 +43,11 @@ class Main(
     private suspend fun summarizeAuctions(auctions: Map<Int, List<Auction>>): List<Summary> =
         auctions.map {
             // TODO iterating items multiple times
+//            if (it.key == 172043) {
+//                it.value.sortedBy { it.unit_price }.forEach { auction ->
+//                    logger.info("$auction")
+//                }
+//            }
             val quantity = it.value.fold(0L) { acc, auction -> acc + auction.quantity }
 
 

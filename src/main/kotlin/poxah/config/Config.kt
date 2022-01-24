@@ -9,6 +9,7 @@ data class Config(
     val jewelcraft: Profession,
     val other: Profession,
     val enchanting: Profession,
+    val blacksmith: Profession,
 ) {
     fun asMap(): Map<String, Profession> =
         mapOf(
@@ -20,6 +21,7 @@ data class Config(
             "jewelcraft" to jewelcraft,
             "other" to other,
             "enchanting" to enchanting,
+            "blacksmith" to blacksmith,
         )
 
     fun ids(): List<Int> =
