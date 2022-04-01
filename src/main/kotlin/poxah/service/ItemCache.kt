@@ -55,7 +55,7 @@ data class Item(
     val name: String,
 )
 
-private fun poxah.blizzard.model.Item.toItem(): Item =
+private fun poxah.blizzard.gamedata.model.Item.toItem(): Item =
     Item(
         id,
         name

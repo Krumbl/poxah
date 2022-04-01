@@ -1,4 +1,4 @@
-package poxah.blizzard.model
+package poxah.blizzard.gamedata.model
 
 data class AuctionResponse(
     val _links: Link,

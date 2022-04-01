@@ -2,143 +2,63 @@ package poxah
 
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import poxah.blizzard.GameDataClient
 import poxah.blizzard.auth.AuthClient
-import poxah.blizzard.model.Auction
-import poxah.blizzard.model.AuctionResponse
-import poxah.config.Config
-import poxah.service.ItemCache
-import poxah.service.JsonFileService
-import poxah.service.ResourceFileService
+import poxah.blizzard.profile.ProfileClient
 import java.io.File
-import java.time.Instant
+import java.util.*
 
-val logger = LoggerFactory.getLogger(Main::class.java)
 class Main(
     tokenClient: AuthClient
 ) {
-    private val client = GameDataClient(tokenClient)
-    private val itemCache = ItemCache(client)
+    val logger = LoggerFactory.getLogger(Main::class.java)
+    private val client = ProfileClient(tokenClient)
 
-
-    private val config: Config = ResourceFileService().read("config.json")
-    init {
-        logger.debug("Config $config")
-    }
-
-    private fun getAuctions(): Map<Int, List<Auction>> {
-        val auctions = runBlocking { client.getAuctions() }
-//        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions_1642975803.json"))
-        JsonFileService().write("auctions_${Instant.now().epochSecond}.json", auctions)
-
-        logger.debug("auctions ${auctions.auctions.size}")
-        val filteredAuctions = auctions.auctions.filter {
-            config.ids().contains(it.item.id)
-        }.groupBy { it.item.id }
-        logger.debug("filtered auctions ${filteredAuctions.size}")
-
-        return filteredAuctions
-    }
-
-    private suspend fun summarizeAuctions(auctions: Map<Int, List<Auction>>): List<Summary> =
-        auctions.map {
-            // TODO iterating items multiple times
-//            if (it.key == 172043) {
-//                it.value.sortedBy { it.unit_price }.forEach { auction ->
-//                    logger.info("$auction")
-//                }
-//            }
-            val quantity = it.value.fold(0L) { acc, auction -> acc + auction.quantity }
-
-
-            // TODO legendaries not separated by ilvl
-            val totalCost =
-                it.value.fold(0L) { acc, auction ->
-                    acc + (auction.unit_price ?: (auction.buyout * auction.quantity))
-                    //                        requireNotNull(auction.unit_price) { "Invalid auction $auction" } *
-                }
-            val min: Long = it.value.minOf { auction -> (auction.unit_price ?: (auction.buyout * auction.quantity)) }
-//                requireNotNull(auction.unit_price)}
-
-            Summary(
-                it.key,
-                itemCache.getItem(it.key).name,
-                Price(min),
-                Price(totalCost / quantity),
-                quantity
-            )
-        }
-
-    /**
-     * Prints output to `summary.csv`
-     */
-    suspend fun printSummary() {
-        val summaries = summarizeAuctions(getAuctions())
-//        logger.info("Summary")
-//        logger.info(Summary.HEADER)
-//        summaries.forEach {
-//            logger.info("$it")
-//        }
-
-        File("out/summary.csv").printWriter().use { print ->
-//            print.println(Summary.HEADER)
-            summaries.sortedBy { it.itemId }.forEach {
-                print.println("$it")
+    suspend fun summarizeCharacters() {
+        val characterTier = characters.associateWith { summarizeTier(it) }
+        File("out/tier.csv").printWriter().use { print ->
+            print.println("Name|${tierSlots.joinToString("|")}")
+            characterTier.forEach { (name, tier) ->
+                print.println("$name|${tierSlots.map { tier[it] }.joinToString("|")}")
             }
         }
     }
 
-    fun stop() {
-        itemCache.close()
-    }
+    private suspend fun summarizeTier(name: String): Map<String, TierInfo> =
+        client.getCharacterEquipment(name.lowercase(Locale.getDefault()))
+            .equipped_items.filter { tierSlots.contains(it.slot.type) }.associate {
+                it.slot.type to TierInfo(
+                    slot = it.slot.type,
+                    iLvl = it.level.value,
+                    tier = it.set != null,
+                )
+            }
 
+    companion object {
+        // TODO move to enum
+        val tierSlots = listOf("HEAD", "SHOULDER", "CHEST", "LEGS", "HANDS")
+        // TODO from file
+        val characters = listOf("Managrowl", "Kyrigami",
+            "Mortmont","Alekzandr","Borsgachef","Isüna","Shotslawl","Drosc","Magegio","Petmybeaver","Furryfighter","Hankyshanky","Nëytiri","Chaoticdurp","Grazzler","Jakdarippa","Lealina",
+            "Sarichi","Eveso","Kiraera","Krumbl","Spookylust",
+        )
+    }
 }
 
+data class TierInfo(
+    val slot: String,
+    val iLvl: Number,
+    val tier: Boolean,
+) {
+    override fun toString(): String =
+        "$iLvl|$tier"
+}
 
 fun main(args: Array<String>) {
-    logger.warn("Program arguments: ${args.joinToString()}")
 
     val main = Main(AuthClient(args[0], args[1]))
 
     runBlocking {
-        main.printSummary()
-        main.stop()
+        main.summarizeCharacters()
     }
 
-//    runBlocking {
-//        logger.info("${GameDataClient(AuthClient(args[0], args[1])).getItem(178786)}")
-//    }
-
-
-
-
-//    auctions.auctions.filter { it.item.id == 171276 }.sortedBy { it.unit_price }.forEach {
-//        logger.info(it.toString())
-//    }
-//    val petCageId = 82800
-//    auctions.auctions.filter { it.item.id == petCageId && it.item.pet_species_id == 1152 }.forEach {
-//        logger.info(it.toString())
-//    }
-}
-
-data class Summary(
-    val itemId: Int,
-    val name: String,
-    val min: Price,
-    val avg: Price,
-    val quantity: Long,
-) {
-
-    companion object {
-        const val HEADER = "item,name,quantity,min,avg"
-    }
-    override fun toString(): String =
-        "$itemId|$name|$quantity|${min.price}|${avg.price}"
-
-}
-
-@JvmInline
-value class Price(val price: Long) {
-    fun pretty(): String =
-        "${(price / 10000)}g ${price / 100 % 100}s ${price % 100}c"
 }
