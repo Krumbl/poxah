@@ -1,15 +1,14 @@
 package poxah.blizzard.profile.model
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import poxah.blizzard.gamedata.model.Link
 
 data class CharacterEquipment(
     val _links: Link,
-    val character: Character,
+    val character: CharacterRef,
     val equipped_items: List<EquippedItem>,
 )
 
-data class Character(
+data class CharacterRef(
     val name: String,
 )
 data class EquippedItem(
