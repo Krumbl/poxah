@@ -37,3 +37,18 @@ data class Modifier(
     val type: Int,
     val value: Int,
 )
+
+// {"id":725091716,"item":{"id":191328},"quantity":2,"unit_price":7300,"time_left":"SHORT"}
+data class CommodityResponse(
+    val _links: Link,
+    val auctions: List<Commodity>,
+)
+
+data class Commodity(
+    val id: Int,
+    val item: CommodityItem,
+)
+
+data class CommodityItem(
+    val id: Int,
+)

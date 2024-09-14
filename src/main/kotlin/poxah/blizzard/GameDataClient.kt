@@ -12,6 +12,7 @@ import kotlinx.serialization.Serializable
 import poxah.blizzard.auth.AuthClient
 import poxah.blizzard.auth.model.AuthToken
 import poxah.blizzard.model.AuctionResponse
+import poxah.blizzard.model.CommodityResponse
 import poxah.blizzard.model.ConnectedRealm
 import poxah.blizzard.model.Item
 
@@ -55,6 +56,8 @@ class GameDataClient(
     suspend fun getAuctions(): AuctionResponse =
         client.get("https://us.api.blizzard.com/data/wow/connected-realm/3676/auctions?namespace=dynamic-us&locale=en_US&access_token=UShoBgCsONvtNvZ8BzQNBJCA3CK5X7RgRv")
 
+    suspend fun getCommodities(): CommodityResponse =
+        client.get("https://us.api.blizzard.com/data/wow/commodities?namespace=dynamic-us&locale=en_US&access_token=UShoBgCsONvtNvZ8BzQNBJCA3CK5X7RgRv")
 
     suspend fun getConnectedRealm(realmId: String = "3676"): ConnectedRealm =
         client.get("https://us.api.blizzard.com/data/wow/connected-realm/$realmId?namespace=dynamic-us&locale=en_US")

@@ -28,10 +28,8 @@ class Main(
 
     private fun getAuctions(): Map<Int, List<Auction>> {
         val auctions = runBlocking { client.getAuctions() }
-//        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions_1642975803.json"))
         JsonFileService().write("auctions_${Instant.now().epochSecond}.json", auctions)
-
-        logger.debug("auctions ${auctions.auctions.size}")
+//        val auctions = requireNotNull(JsonFileService().read<AuctionResponse>("auctions_1726332296.json"))
         val filteredAuctions = auctions.auctions.filter {
             config.ids().contains(it.item.id)
         }.groupBy { it.item.id }
