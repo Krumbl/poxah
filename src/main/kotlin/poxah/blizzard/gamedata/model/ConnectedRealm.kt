@@ -1,6 +1,4 @@
-package poxah.blizzard.model
-
-import kotlinx.serialization.Serializable
+package poxah.blizzard.gamedata.model
 
 data class ConnectedRealm(
     val _links: Link,
